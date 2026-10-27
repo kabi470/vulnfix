@@ -1,0 +1,4 @@
+With retrieval:    15/15 fixed and verified, avg attempts 1.13
+Without retrieval: 13/15 fixed and verified, avg attempts 1.47
+Model: Qwen2.5-Coder-14B-Instruct (4-bit) on Kaggle free T4 x2
+Test: 15 held-out pairs from 78 verified pairs
