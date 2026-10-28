@@ -6,6 +6,9 @@ import sys
 # Modules that open windows/browsers or print when imported
 SKIP = {"antigravity", "this", "tkinter", "turtle", "idlelib", "pydoc", "webbrowser"}
 
+# Names removed in Python 3.14 (flagged even when running on older Python)
+REMOVED = {"ast.Num", "ast.Str", "ast.Bytes", "ast.NameConstant", "ast.Ellipsis"}
+
 
 def _import_std(name):
     top = name.split(".")[0]
@@ -44,9 +47,12 @@ def check_attrs(code):
                     if a.name != "*" and not _has(m, a.name):
                         problems.append(f"'{a.name}' not found in {node.module}")
     for node in ast.walk(tree):
-        if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
-                and node.value.id in mods and not _has(mods[node.value.id], node.attr)):
-            problems.append(f"{node.value.id}.{node.attr} does not exist in Python {sys.version.split()[0]}")
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in mods:
+            full = mods[node.value.id].__name__ + "." + node.attr
+            if full in REMOVED:
+                problems.append(f"{full} was removed in Python 3.14")
+            elif not _has(mods[node.value.id], node.attr):
+                problems.append(f"{node.value.id}.{node.attr} does not exist in Python {sys.version.split()[0]}")
     return sorted(set(problems))
 
 
