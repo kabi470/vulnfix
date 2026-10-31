@@ -98,3 +98,7 @@ Another limit: 195 of the 719 real human fixes in the data use names from outsid
     python vulnfix.py fix myfile.py --model qwen2.5-coder:7b   # needs a running Ollama server
 
 `scan` is light and needs no model. `fix` asks a model for a patch for each function that has a finding, re-checks it with the scanner and the static checks (`behavior_check.py`, `name_check.py`), and prints a diff. It never writes to your files. A "VERIFIED" fix is not proven safe or correct: review it and run your tests. The same pipeline (`fixer.py`) runs in the Kaggle notebook with a larger model. The Ollama backend is written against Ollama's chat API and has so far been tested only against a mock server.
+
+### Demo of the fix command with a real model
+
+On 7 functions (`test_vuln.py`, `examples/demo.py`) the pipeline gave 5 scanner-verified fixes, of which 3 are good by manual review. `eval` replaced by `ast.literal_eval` passed the scanner but cannot do arithmetic. See `docs/demo_review.md`. `examples/` contains deliberately vulnerable code, so `scan .` reports it on purpose.
