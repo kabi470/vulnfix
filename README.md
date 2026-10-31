@@ -85,3 +85,7 @@ The model handles well-known one-line patterns (`yaml.safe_load`, passing argume
 Same 19 functions, with retrieval, plus a check for undefined names and automatic standard-library imports: scanner-verified **17 / 19**, correct after manual review **12 / 19**. The first run scored 15/19 and 11/19, so the difference is one case. The five wrong fixes use patterns my scanner does not know (denylist-based unpicklers, `__import__` on input-chosen names, `ast.literal_eval` replacing `eval`). When a checker is part of the loop, the model drifts toward code the checker cannot see. See `docs/real_review.md`.
 
 Another limit: 195 of the 719 real human fixes in the data use names from outside the function, so a model that sees one function cannot reproduce about a quarter of real fixes.
+
+### Third run (extra rules: dynamic import, builtins getattr, denylist Unpickler)
+
+20 functions (the earlier 19 plus CVE-2015-1326): scanner-verified **15 / 20**, good after manual review **12 / 20**. The new rules turned two wrong passes (denylist unpicklers) into honest failures, but the model rewrote a third bad fix into a form the rule missed, and two `ast.literal_eval` fixes still pass because no static rule can see that they break the feature. Each rule closes one loophole and the model finds another. The lasting answer is tests that run the fixed code. Details in `docs/real_review.md`.

@@ -15,3 +15,7 @@ Manual review of the with-retrieval run: 11/19 correct fixes
 Second real-world run (name check added, with retrieval, 19 functions):
 Scanner-verified: 17/19 (avg attempts 1.68)
 Manual review: 12/19 good fixes
+
+Third real-world run (extra rules, with retrieval, 20 functions):
+Scanner-verified: 15/20 (avg attempts 1.75)
+Manual review: 12/20 good fixes

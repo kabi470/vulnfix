@@ -53,3 +53,14 @@ Scanner-verified: 17/19. Judged good from reading the diffs (nothing executed): 
 | 19 | CVE-2019-19010 | pass | Wrong: `ast.literal_eval` removes the feature |
 
 The name check removed the undefined-name failure and added missing imports automatically. The five wrong fixes use patterns the scanner does not recognize, so scanner verification overstates success (17/19 vs 12/19). 12 vs 11 in the first run is one case, so I do not claim an improvement.
+
+## Third run: with extra detector rules (with retrieval, 20 functions)
+
+Scanner-verified: 15/20. Judged good from reading the diffs (nothing executed): 12/20 (13/20 if the sanitized import fix for CVE-2015-1326 is counted).
+
+- Good (12): `yaml` SafeLoader fixes, shell commands turned into argument lists, `json` instead of `pickle` for CVE-2018-7889 (the writer of that file must switch too).
+- Wrong but passing (3): `ast.literal_eval` replacing `eval` twice (CVE-2019-19010, breaks the feature), and CVE-2018-1000070 rewritten to `getattr(__import__('builtins'), ...)`, which dodged the new getattr rule and still breaks the feature.
+- Correctly rejected (4): two denylist/permissive Unpicklers (CVE-2018-7889, CVE-2016-1000003; the second allows all of `builtins`), one `yaml.load` left in CVE-2021-27213, and `eval` with empty builtins (CVE-2018-8097).
+- Probably good but rejected (1): CVE-2015-1326, where the module name is sanitized before `importlib.import_module`. The dynamic-import rule cannot tell sanitized input from raw input.
+
+Rule limitations: the Unpickler rule checks only the shape of `find_class`, so it cannot tell a denylist from an allowlist (it rejected CVE-2016-1000003 for the wrong reason). The getattr rule was evaded by obtaining `builtins` through `__import__`.
