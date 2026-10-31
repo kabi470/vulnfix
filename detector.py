@@ -85,9 +85,11 @@ class Detector(ast.NodeVisitor):
 
 
 def scan(code):
+    from rules_extra import extra_findings
     d = Detector()
-    d.visit(ast.parse(code))
-    return d.findings
+    tree = ast.parse(code)
+    d.visit(tree)
+    return sorted(d.findings + extra_findings(tree))
 
 
 if __name__ == "__main__":
