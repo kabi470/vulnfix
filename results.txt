@@ -11,3 +11,7 @@ Real-world test (19 functions from 15 CVEs flagged by the detector):
 Scanner-verified, with retrieval:    15/19 (avg attempts 1.63)
 Scanner-verified, without retrieval: 14/19 (avg attempts 1.79)
 Manual review of the with-retrieval run: 11/19 correct fixes
+
+Second real-world run (name check added, with retrieval, 19 functions):
+Scanner-verified: 17/19 (avg attempts 1.68)
+Manual review: 12/19 good fixes

@@ -79,3 +79,9 @@ I ran the loop on real CVE-fix functions that my detector flags (19 functions fr
 I then read every output by hand (nothing was executed): **11 of 19 are correct fixes**. 4 passed the scanner but are wrong or incomplete, and the other 4 were correctly rejected by the scanner. See `docs/real_review.md`.
 
 The model handles well-known one-line patterns (`yaml.safe_load`, passing arguments as a list instead of a shell string) but fails where the fix needs design, such as replacing `eval` with a safe expression evaluator. Scanner verification alone overstates success, so the next step is a check for undefined names and tests that run the fixed code.
+
+### Second real-world run (with name check)
+
+Same 19 functions, with retrieval, plus a check for undefined names and automatic standard-library imports: scanner-verified **17 / 19**, correct after manual review **12 / 19**. The first run scored 15/19 and 11/19, so the difference is one case. The five wrong fixes use patterns my scanner does not know (denylist-based unpicklers, `__import__` on input-chosen names, `ast.literal_eval` replacing `eval`). When a checker is part of the loop, the model drifts toward code the checker cannot see. See `docs/real_review.md`.
+
+Another limit: 195 of the 719 real human fixes in the data use names from outside the function, so a model that sees one function cannot reproduce about a quarter of real fixes.
