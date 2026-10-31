@@ -62,3 +62,7 @@ The LLM step runs in a Kaggle notebook (free GPU).
 - More vulnerability rules and a larger evaluation
 
 Use only on code you own or are authorized to test.
+
+## Data credit
+
+Real-world pairs come from the CVEfixes dataset (Bhandari, Naseer, Moonen, PROMISE '21), licensed CC BY 4.0: https://doi.org/10.1145/3475960.3475985
