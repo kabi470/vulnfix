@@ -66,3 +66,16 @@ Use only on code you own or are authorized to test.
 ## Data credit
 
 Real-world pairs come from the CVEfixes dataset (Bhandari, Naseer, Moonen, PROMISE '21), licensed CC BY 4.0: https://doi.org/10.1145/3475960.3475985
+
+## Real-world test (CVEfixes)
+
+I ran the loop on real CVE-fix functions that my detector flags (19 functions from 15 CVEs). Retrieval examples came only from the synthetic pairs.
+
+| Setup | Scanner-verified | Avg. attempts |
+|---|---|---|
+| With retrieval | 15 / 19 | 1.63 |
+| Without retrieval | 14 / 19 | 1.79 |
+
+I then read every output by hand (nothing was executed): **11 of 19 are correct fixes**. 4 passed the scanner but are wrong or incomplete, and the other 4 were correctly rejected by the scanner. See `docs/real_review.md`.
+
+The model handles well-known one-line patterns (`yaml.safe_load`, passing arguments as a list instead of a shell string) but fails where the fix needs design, such as replacing `eval` with a safe expression evaluator. Scanner verification alone overstates success, so the next step is a check for undefined names and tests that run the fixed code.

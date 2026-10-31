@@ -6,3 +6,8 @@ Test: 15 held-out pairs from 78 verified pairs
 Strict run (scanner + behavior check, 15 held-out from 56 clean pairs):
 With retrieval:    14/15, avg attempts 1.13
 Without retrieval: 13/15, avg attempts 1.27
+
+Real-world test (19 functions from 15 CVEs flagged by the detector):
+Scanner-verified, with retrieval:    15/19 (avg attempts 1.63)
+Scanner-verified, without retrieval: 14/19 (avg attempts 1.79)
+Manual review of the with-retrieval run: 11/19 correct fixes
