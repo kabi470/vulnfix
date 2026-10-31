@@ -89,3 +89,12 @@ Another limit: 195 of the 719 real human fixes in the data use names from outsid
 ### Third run (extra rules: dynamic import, builtins getattr, denylist Unpickler)
 
 20 functions (the earlier 19 plus CVE-2015-1326): scanner-verified **15 / 20**, good after manual review **12 / 20**. The new rules turned two wrong passes (denylist unpicklers) into honest failures, but the model rewrote a third bad fix into a form the rule missed, and two `ast.literal_eval` fixes still pass because no static rule can see that they break the feature. Each rule closes one loophole and the model finds another. The lasting answer is tests that run the fixed code. Details in `docs/real_review.md`.
+
+## Command-line tool
+
+    python vulnfix.py scan test_vuln.py        # one file
+    python vulnfix.py scan .                   # a folder (skips venv, data, hidden folders)
+    python vulnfix.py scan . --json            # machine-readable; exit code 1 if anything is found
+    python vulnfix.py fix myfile.py --model qwen2.5-coder:7b   # needs a running Ollama server
+
+`scan` is light and needs no model. `fix` asks a model for a patch for each function that has a finding, re-checks it with the scanner and the static checks (`behavior_check.py`, `name_check.py`), and prints a diff. It never writes to your files. A "VERIFIED" fix is not proven safe or correct: review it and run your tests. The same pipeline (`fixer.py`) runs in the Kaggle notebook with a larger model. The Ollama backend is written against Ollama's chat API and has so far been tested only against a mock server.
