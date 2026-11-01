@@ -57,12 +57,14 @@ def hints_for(messages):
     if "command injection" in text or "shell" in text:
         hints.append("Run commands with subprocess.run and the command as a LIST of arguments (no shell, no os.system, "
                      "no command strings). If the program itself comes from the input, allow only a fixed set of "
-                     "program names and raise ValueError for anything else.")
+                     "program names and raise ValueError for anything else. Keep the argument type the function had before: if it "
+                     "receives a command string, split it with shlex.split.")
     if "pickle" in text or "marshal" in text:
         hints.append("Do not deserialize untrusted data with pickle or marshal. Use json (json.loads) instead.")
     if "eval" in text or "exec()" in text:
         hints.append("Do not use eval or exec. Write a small evaluator with the ast module that allows only the node "
-                     "types the function needs, and keep the result the same for valid input.")
+                     "types the function needs and raises ValueError for every other node type (it must never return None or an "
+                     "error string), and keep the result the same for valid input. Invalid input must still raise an error.")
     if "yaml" in text:
         hints.append("Use yaml.safe_load or Loader=yaml.SafeLoader.")
     if "sql" in text:
