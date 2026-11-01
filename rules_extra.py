@@ -13,6 +13,7 @@ def dotted(node):
 class Extra(ast.NodeVisitor):
     def __init__(self):
         self.findings = []
+        self.has_membership = False
 
     def visit_ClassDef(self, node):
         if any(dotted(b).endswith("Unpickler") for b in node.bases):
@@ -26,6 +27,11 @@ class Extra(ast.NodeVisitor):
     def visit_Call(self, node):
         name = dotted(node.func)
         arg = node.args[0] if node.args else None
+        if (name.startswith("subprocess.") and isinstance(arg, ast.Call)
+                and dotted(arg.func) == "shlex.split" and arg.args
+                and not isinstance(arg.args[0], ast.Constant) and not self.has_membership):
+            self.findings.append((node.lineno,
+                "Command injection: program chosen by input (shlex.split of non-constant) without an allowlist check"))
         if name in ("pickle.Unpickler", "cPickle.Unpickler"):
             self.findings.append((node.lineno,
                 "Insecure deserialization: pickle.Unpickler without a restricted find_class"))
@@ -42,5 +48,8 @@ class Extra(ast.NodeVisitor):
 
 def extra_findings(tree):
     e = Extra()
+    e.has_membership = any(
+        isinstance(n, ast.Compare) and any(isinstance(op, (ast.In, ast.NotIn)) for op in n.ops)
+        for n in ast.walk(tree))
     e.visit(tree)
     return e.findings

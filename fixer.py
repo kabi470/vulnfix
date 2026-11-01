@@ -11,6 +11,7 @@ import re
 import textwrap
 
 from behavior_check import behavior_check
+from behavior_tests import check_cases
 from detector import scan
 from name_check import add_missing_imports, new_undefined_names
 
@@ -38,13 +39,49 @@ def similar(code, pool, k=2):
     return [pool[i] for i in scores.argsort()[::-1][:k]]
 
 
-def problems_in(original, fixed):
+def problems_in(original, fixed, tests=None, func=None):
     try:
         ast.parse(fixed)
     except SyntaxError:
         return ["fixed code is not valid Python"]
     found = [f"line {l}: {m}" for l, m in scan(fixed)]
-    return found + behavior_check(original, fixed) + new_undefined_names(original, fixed)
+    problems = found + behavior_check(original, fixed) + new_undefined_names(original, fixed)
+    if tests and func and not problems:  # run the code only after the static checks pass
+        problems = ["test failed: " + f for f in check_cases(fixed, func, tests)]
+    return problems
+
+
+def hints_for(messages):
+    text = " ".join(messages).lower()
+    hints = []
+    if "command injection" in text or "shell" in text:
+        hints.append("Run commands with subprocess.run and the command as a LIST of arguments (no shell, no os.system, "
+                     "no command strings). If the program itself comes from the input, allow only a fixed set of "
+                     "program names and raise ValueError for anything else.")
+    if "pickle" in text or "marshal" in text:
+        hints.append("Do not deserialize untrusted data with pickle or marshal. Use json (json.loads) instead.")
+    if "eval" in text or "exec()" in text:
+        hints.append("Do not use eval or exec. Write a small evaluator with the ast module that allows only the node "
+                     "types the function needs, and keep the result the same for valid input.")
+    if "yaml" in text:
+        hints.append("Use yaml.safe_load or Loader=yaml.SafeLoader.")
+    if "sql" in text:
+        hints.append("Use a parameterized query with placeholders and pass the values separately.")
+    return hints
+
+
+def notes_for(original, fixed):
+    notes = []
+    if re.search(r"pickle|marshal", original) and not re.search(r"pickle|marshal", fixed):
+        notes.append("data format changed (pickle -> something else): whatever writes this data must change too")
+    has_member = lambda c: any(isinstance(n, ast.Compare) and any(isinstance(o, (ast.In, ast.NotIn)) for o in n.ops)
+                               for n in ast.walk(ast.parse(c)))
+    try:
+        if has_member(fixed) and not has_member(original) and "subprocess" in fixed:
+            notes.append("the fix uses an allowlist of programs: check that its contents fit your application")
+    except SyntaxError:
+        pass
+    return notes
 
 
 def build_messages(code, findings, examples):
@@ -59,28 +96,57 @@ def build_messages(code, findings, examples):
                "Return ONLY the fixed function in one code block: no classes, no helper functions, "
                "same name and arguments. Use only names the function already uses, Python built-ins, "
                "or standard-library modules. Use only APIs that exist in Python 3.14.")
+    hints = hints_for([m for _, m in findings])
+    if hints:
+        prompt += "\n\nHints:\n- " + "\n- ".join(hints)
     return [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
 
 
-def fix_code(code, ask, pool=None, tries=3):
-    """Fix one snippet. Returns a dict with status, fixed code and what is left."""
+def _first_function(code):
+    for n in ast.walk(ast.parse(code)):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return n.name
+    return None
+
+
+def fix_code(code, ask, pool=None, tries=3, tests=None, func=None):
+    """Fix one snippet. Returns a dict with status, fixed code and what is left.
+
+    tests: optional list of test cases for the function (see behavior_tests.py).
+    They are run only if the original code passes them.
+    """
     findings = scan(code)
     if not findings:
-        return {"status": "no findings", "fixed": code, "attempts": 0, "remaining": [], "findings": []}
+        return {"status": "no findings", "fixed": code, "attempts": 0, "remaining": [],
+                "findings": [], "tests": "not used"}
+    test_state = "not used"
+    func = func or (_first_function(code) if tests else None)
+    if tests and func:
+        base = check_cases(code, func, tests)
+        if base:
+            test_state = "ignored: the original code does not pass them (" + base[0] + ")"
+            tests = None
+        else:
+            test_state = f"{len(tests)} case(s)"
+    else:
+        tests = None
     examples = similar(code, pool) if pool else []
     messages = build_messages(code, findings, examples)
     fixed, left = code, []
     for attempt in range(1, tries + 1):
         fixed = add_missing_imports(code, extract(ask(messages)))
-        left = problems_in(code, fixed)
+        left = problems_in(code, fixed, tests, func)
         if not left:
-            return {"status": "verified", "fixed": fixed, "attempts": attempt,
-                    "remaining": [], "findings": findings}
+            return {"status": "verified", "fixed": fixed, "attempts": attempt, "remaining": [],
+                    "findings": findings, "tests": test_state + (" passed" if tests else ""),
+                    "notes": notes_for(code, fixed)}
         messages.append({"role": "assistant", "content": fixed})
         messages.append({"role": "user", "content": "Problems found:\n" + "\n".join(left) +
+                         ("\nHints:\n- " + "\n- ".join(hints_for(left)) if hints_for(left) else "") +
                          "\nFix them. Return only the fixed function."})
-    return {"status": "not verified", "fixed": fixed, "attempts": tries,
-            "remaining": left, "findings": findings}
+    return {"status": "not verified", "fixed": fixed, "attempts": tries, "remaining": left,
+            "findings": findings, "tests": test_state + (" failed" if tests else ""),
+            "notes": notes_for(code, fixed)}
 
 
 def _functions(tree):
@@ -97,8 +163,11 @@ def _functions(tree):
     return out
 
 
-def fix_file(path, ask, pool=None, tries=3):
-    """Suggest a fix for every function in a file that has a finding."""
+def fix_file(path, ask, pool=None, tries=3, tests=None):
+    """Suggest a fix for every function in a file that has a finding.
+
+    tests: optional dict {function_name: [cases]}; only top-level functions are supported.
+    """
     source = open(path, encoding="utf-8", errors="replace").read()
     try:
         tree = ast.parse(source)
@@ -114,13 +183,22 @@ def fix_file(path, ask, pool=None, tries=3):
             continue
         covered.update(l for l, _ in hits)
         original = textwrap.dedent("\n".join(lines[start - 1:fn.end_lineno]))
-        result = fix_code(original, ask, pool, tries)
+        cases = None
+        note = None
+        if tests and fn.name in tests:
+            if fn in tree.body:
+                cases = tests[fn.name]
+            else:
+                note = "not run: only top-level functions are supported"
+        result = fix_code(original, ask, pool, tries, cases, fn.name)
+        if note:
+            result["tests"] = note
         diff = list(difflib.unified_diff(original.splitlines(), result["fixed"].splitlines(),
                                          "before", "after", lineterm="", n=1))
         suggestions.append({"function": fn.name, "start": start, "end": fn.end_lineno,
                             "findings": hits, "status": result["status"],
                             "attempts": result["attempts"], "remaining": result["remaining"],
-                            "diff": diff})
+                            "tests": result["tests"], "notes": result.get("notes", []), "diff": diff})
     outside = [(l, m) for l, m in findings if l not in covered]
     return {"error": None, "suggestions": suggestions, "outside": outside}
 
@@ -139,8 +217,12 @@ def format_result(path, result):
             out.append(f"  line {line}: {message}")
         verdict = "VERIFIED" if s["status"] == "verified" else "NOT VERIFIED"
         out.append(f"  checks: {verdict} after {s['attempts']} attempt(s)")
+        if s.get("tests", "not used") != "not used":
+            out.append(f"  tests: {s['tests']}")
         for problem in s["remaining"]:
             out.append(f"  still reports: {problem}")
+        for note in s.get("notes", []):
+            out.append(f"  note: {note}")
         out.append("\n".join(s["diff"]) if s["diff"] else "  (no change suggested)")
     for line, message in result["outside"]:
         out.append(f"{path}:{line}: {message}  [module-level code, no suggestion made]")

@@ -87,9 +87,19 @@ def cmd_fix(args):
             pool = load_pool(args.pool)
         except ImportError:
             print("scikit-learn not installed: continuing without retrieval examples.", file=sys.stderr)
+    tests = None
+    if args.tests:
+        from behavior_tests import load_tests
+        try:
+            tests = load_tests(args.tests)
+        except (OSError, ValueError) as e:
+            print(f"Could not read the tests file: {e}", file=sys.stderr)
+            return 2
+        print("WARNING: --tests runs the original and the model-written code on this machine. "
+              "This is not a sandbox: use a disposable environment and harmless inputs.", file=sys.stderr)
     ask = ollama_ask(args.model, args.host)
     try:
-        result = fix_file(args.file, ask, pool, args.tries)
+        result = fix_file(args.file, ask, pool, args.tries, tests)
     except OSError as e:
         print(f"Could not reach the model at {args.host}: {e}\nIs Ollama running, and is the model pulled?",
               file=sys.stderr)
@@ -112,6 +122,7 @@ def main(argv=None):
     f.add_argument("--host", default="http://localhost:11434")
     f.add_argument("--pool", default="clean_pairs.jsonl", help="verified examples for retrieval (optional)")
     f.add_argument("--tries", type=int, default=3)
+    f.add_argument("--tests", help="JSON file of test cases; RUNS the original and model-written code (disposable environment only)")
     f.set_defaults(func=cmd_fix)
     args = p.parse_args(argv)
     return args.func(args)
