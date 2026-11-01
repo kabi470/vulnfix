@@ -13,7 +13,7 @@ import textwrap
 from behavior_check import behavior_check
 from behavior_tests import check_cases
 from detector import scan
-from name_check import add_missing_imports, new_undefined_names
+from name_check import add_missing_imports, free_names, new_undefined_names
 
 SYSTEM = "You are a secure coding assistant. Make minimal edits."
 
@@ -39,7 +39,7 @@ def similar(code, pool, k=2):
     return [pool[i] for i in scores.argsort()[::-1][:k]]
 
 
-def problems_in(original, fixed, tests=None, func=None):
+def problems_in(original, fixed, tests=None, func=None, context=""):
     try:
         ast.parse(fixed)
     except SyntaxError:
@@ -47,7 +47,8 @@ def problems_in(original, fixed, tests=None, func=None):
     found = [f"line {l}: {m}" for l, m in scan(fixed)]
     problems = found + behavior_check(original, fixed) + new_undefined_names(original, fixed)
     if tests and func and not problems:  # run the code only after the static checks pass
-        problems = ["test failed: " + f for f in check_cases(fixed, func, tests)]
+        run_code = (context + "\n" if context else "") + fixed
+        problems = ["test failed: " + f for f in check_cases(run_code, func, tests)]
     return problems
 
 
@@ -111,7 +112,7 @@ def _first_function(code):
     return None
 
 
-def fix_code(code, ask, pool=None, tries=3, tests=None, func=None):
+def fix_code(code, ask, pool=None, tries=3, tests=None, func=None, context=""):
     """Fix one snippet. Returns a dict with status, fixed code and what is left.
 
     tests: optional list of test cases for the function (see behavior_tests.py).
@@ -124,7 +125,7 @@ def fix_code(code, ask, pool=None, tries=3, tests=None, func=None):
     test_state = "not used"
     func = func or (_first_function(code) if tests else None)
     if tests and func:
-        base = check_cases(code, func, tests)
+        base = check_cases((context + "\n" if context else "") + code, func, tests)
         if base:
             test_state = "ignored: the original code does not pass them (" + base[0] + ")"
             tests = None
@@ -137,7 +138,7 @@ def fix_code(code, ask, pool=None, tries=3, tests=None, func=None):
     fixed, left = code, []
     for attempt in range(1, tries + 1):
         fixed = add_missing_imports(code, extract(ask(messages)))
-        left = problems_in(code, fixed, tests, func)
+        left = problems_in(code, fixed, tests, func, context)
         if not left:
             return {"status": "verified", "fixed": fixed, "attempts": attempt, "remaining": [],
                     "findings": findings, "tests": test_state + (" passed" if tests else ""),
@@ -163,6 +164,25 @@ def _functions(tree):
 
     visit(tree)
     return out
+
+
+def _context_for(source, tree, original):
+    """Module-level imports that the function needs, so tests can run it on its own."""
+    try:
+        needed = free_names(original)
+    except SyntaxError:
+        return ""
+    out = []
+    for n in tree.body:
+        if isinstance(n, ast.Import):
+            bound = {(a.asname or a.name).split(".")[0] for a in n.names}
+        elif isinstance(n, ast.ImportFrom):
+            bound = {a.asname or a.name for a in n.names}
+        else:
+            continue
+        if bound & needed:
+            out.append(ast.get_source_segment(source, n))
+    return "\n".join(out)
 
 
 def fix_file(path, ask, pool=None, tries=3, tests=None):
@@ -192,7 +212,8 @@ def fix_file(path, ask, pool=None, tries=3, tests=None):
                 cases = tests[fn.name]
             else:
                 note = "not run: only top-level functions are supported"
-        result = fix_code(original, ask, pool, tries, cases, fn.name)
+        context = _context_for(source, tree, original) if cases else ""
+        result = fix_code(original, ask, pool, tries, cases, fn.name, context)
         if note:
             result["tests"] = note
         diff = list(difflib.unified_diff(original.splitlines(), result["fixed"].splitlines(),
