@@ -1,3 +1,5 @@
 {"calc": [{"args": ["1+2"], "expect": 3},
           {"args": ["2*3+8"], "expect": 14},
-          {"args": ["10/4"], "expect": 2.5}]}
+          {"args": ["10/4"], "expect": 2.5},
+          {"args": ["1/0"], "raises": "ZeroDivisionError"},
+          {"args": ["abc"], "raises": "NameError"}]}

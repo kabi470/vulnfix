@@ -53,6 +53,10 @@ def check_attrs(code):
                 problems.append(f"{full} was removed in Python 3.14")
             elif not _has(mods[node.value.id], node.attr):
                 problems.append(f"{node.value.id}.{node.attr} does not exist in Python {sys.version.split()[0]}")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name in (
+                "visit_Num", "visit_Str", "visit_Bytes", "visit_NameConstant", "visit_Ellipsis"):
+            problems.append(f"{node.name} is never called in Python 3.14: define visit_Constant instead")
     return sorted(set(problems))
 
 
