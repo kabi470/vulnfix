@@ -102,3 +102,7 @@ Another limit: 195 of the 719 real human fixes in the data use names from outsid
 ### Demo of the fix command with a real model
 
 On 7 functions (`test_vuln.py`, `examples/demo.py`) the pipeline gave 5 scanner-verified fixes, of which 3 are good by manual review. `eval` replaced by `ast.literal_eval` passed the scanner but cannot do arithmetic. See `docs/demo_review.md`. `examples/` contains deliberately vulnerable code, so `scan .` reports it on purpose.
+
+### Final demo (all seven functions)
+
+With sharper hints, a passthrough rule, a check for ast visitor methods that Python 3.14 never calls, and tests that run the original and the fixed function in a separate process, all seven demo functions end with a fix that reads as good (`calc` passes 5 executed tests, `run` passes 2). These functions were used while tuning the checks, so this is a demonstration, not a benchmark; `docs/real_review.md` has the real-CVE numbers, measured before these changes. Details and caveats: `docs/demo_review.md`.
