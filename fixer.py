@@ -24,8 +24,14 @@ def load_pool(path):
 
 
 def extract(text):
-    m = re.search(r"```(?:python)?\n(.*?)```", text, re.DOTALL)
-    return (m.group(1) if m else text).strip()
+    # the closing fence must start a line, so a ``` inside the code (for example in an f-string) is kept
+    m = re.search(r"```(?:python)?[ \t]*\n(.*?)\n```[ \t]*(?:\n|$)", text, re.DOTALL)
+    if m:
+        return m.group(1).strip()
+    m = re.search(r"```(?:python)?[ \t]*\n(.*)", text, re.DOTALL)  # unclosed fence
+    if m:
+        return re.sub(r"\n?`+\s*$", "", m.group(1)).strip()
+    return text.strip()
 
 
 def similar(code, pool, k=2):
@@ -79,6 +85,8 @@ def notes_for(original, fixed):
     notes = []
     if re.search(r"\b(?:cPickle|pickle|marshal)\b", original) and not re.search(r"\b(?:cPickle|pickle|marshal)\b", fixed):
         notes.append("data format changed (pickle -> something else): whatever writes this data must change too")
+    if re.search(r"\bliteral_eval\b", fixed) and not re.search(r"\bliteral_eval\b", original):
+        notes.append("ast.literal_eval only accepts plain literals (no arithmetic, names or calls): check that the feature still works")
     has_member = lambda c: any(isinstance(n, ast.Compare) and any(isinstance(o, (ast.In, ast.NotIn)) for o in n.ops)
                                for n in ast.walk(ast.parse(c)))
     try:
