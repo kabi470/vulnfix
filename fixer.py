@@ -57,9 +57,11 @@ def hints_for(messages):
     hints = []
     if "command injection" in text or "shell" in text:
         hints.append("Run commands with subprocess.run and the command as a LIST of arguments (no shell, no os.system, "
-                     "no command strings). If the program itself comes from the input, allow only a fixed set of "
-                     "program names and raise ValueError for anything else. Keep the argument type the function had before: if it "
-                     "receives a command string, split it with shlex.split.")
+                     "no command strings). Keep the program name fixed in the code and pass input only as arguments.")
+    if "program chosen by input" in text or "straight through" in text:
+        hints.append("The program itself comes from the input: allow only a fixed set of program names and raise "
+                     "ValueError for anything else. Keep the argument type the function had before: if it receives "
+                     "a command string, split it with shlex.split.")
     if "pickle" in text or "marshal" in text:
         hints.append("Do not deserialize untrusted data with pickle or marshal. Use json (json.loads) instead.")
     if "eval" in text or "exec()" in text:
@@ -75,7 +77,7 @@ def hints_for(messages):
 
 def notes_for(original, fixed):
     notes = []
-    if re.search(r"pickle|marshal", original) and not re.search(r"pickle|marshal", fixed):
+    if re.search(r"\b(?:cPickle|pickle|marshal)\b", original) and not re.search(r"\b(?:cPickle|pickle|marshal)\b", fixed):
         notes.append("data format changed (pickle -> something else): whatever writes this data must change too")
     has_member = lambda c: any(isinstance(n, ast.Compare) and any(isinstance(o, (ast.In, ast.NotIn)) for o in n.ops)
                                for n in ast.walk(ast.parse(c)))
