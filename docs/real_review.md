@@ -64,3 +64,30 @@ Scanner-verified: 15/20. Judged good from reading the diffs (nothing executed): 
 - Probably good but rejected (1): CVE-2015-1326, where the module name is sanitized before `importlib.import_module`. The dynamic-import rule cannot tell sanitized input from raw input.
 
 Rule limitations: the Unpickler rule checks only the shape of `find_class`, so it cannot tell a denylist from an allowlist (it rejected CVE-2016-1000003 for the wrong reason). The getattr rule was evaded by obtaining `builtins` through `__import__`.
+
+## Final run (20 functions, scoped hints, 1200-token limit, extraction fix)
+
+As run: scanner-verified 15/20. Cases 1 and 4 failed because my code extraction cut off generated code that contained three backticks; after the fix they verify on a rerun, so 17/20. Good after reading the diffs: 14/20 (nothing executed). The literal_eval note was added after this run and has not yet been seen on cases 11 and 14.
+
+| # | CVE | Function | Result | Review |
+|---|---|---|---|---|
+| 1 | CVE-2021-21433 | dirsearch | verified on rerun | Good (stderr is no longer merged into the output) |
+| 2 | CVE-2017-16763 | Configuration.load | verified | Good |
+| 3 | CVE-2019-19010 | Math.rpn | verified | Wrong: the visitor's `visit` always raises and `_eval_ast` is defined outside the class |
+| 4 | CVE-2021-21433 | arjun | verified on rerun | Good |
+| 5 | CVE-2017-2809 | Vault.load | verified | Good |
+| 6 | CVE-2017-16618 | load_yamlf | verified | Good |
+| 7 | CVE-2021-27213 | _load_yamlconfig | not verified | Correct: one yaml.load is left |
+| 8 | CVE-2018-7889 | import_bookmarks | verified | Good; the writer of the file must switch to JSON |
+| 9 | CVE-2017-16667 | on_message | verified | Good |
+| 10 | CVE-2011-4104 | from_yaml | verified | Good |
+| 11 | CVE-2018-8097 | visit_Call | verified | Wrong: literal_eval on a call |
+| 12 | CVE-2017-16618 | load_yaml | verified | Good |
+| 13 | CVE-2021-21386 | decompile | verified | Good (the model re-indented tabs to spaces) |
+| 14 | CVE-2018-1000070 | constructObject | verified | Wrong: literal_eval of an expression string |
+| 15 | CVE-2014-1932 | load_djpeg | verified | Good (the output file handle is never closed) |
+| 16 | CVE-2018-7889 | item_to_bm | verified | Good; data format changed |
+| 17 | CVE-2016-1000003 | checkin | verified | Good; data format changed |
+| 18 | CVE-2015-1326 | load_module | not verified | Probably good (sanitized module name), but the dynamic-import rule cannot see sanitizing |
+| 19 | CVE-2017-16615 | parse_yaml_query | verified | Good |
+| 20 | CVE-2019-19010 | icalc | not verified | Correct: eval is still there |

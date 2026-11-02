@@ -19,3 +19,8 @@ Manual review: 12/19 good fixes
 Third real-world run (extra rules, with retrieval, 20 functions):
 Scanner-verified: 15/20 (avg attempts 1.75)
 Manual review: 12/20 good fixes
+
+Final run on 20 real CVE functions (with retrieval, hints, rules, name/behavior checks):
+Scanner-verified: 17/20 (15 as run, +2 after fixing the code-extraction bug)
+Manual review: 14/20 good, 3 wrong passes, 2 correctly rejected, 1 probably good but rejected
+These functions were used while tuning, so the numbers are optimistic.
