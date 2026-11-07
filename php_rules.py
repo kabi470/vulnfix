@@ -28,9 +28,14 @@ def _parser():
     return _PARSER
 
 
+METHOD_START = re.compile(r"(?:(?:public|protected|private|static|abstract|final|var)\s+)+function\b")
+
+
 def _prep(code):
     if code.lstrip().startswith("<?"):
         return code, 0
+    if METHOD_START.match(code.lstrip()):  # a method on its own: wrap it in a class so it parses
+        return "<?php\nclass _W {\n" + code + "\n}\n", 2
     return "<?php\n" + code, 1
 
 

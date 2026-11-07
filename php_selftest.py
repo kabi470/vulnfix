@@ -38,6 +38,9 @@ CASES = [
     ("implode with intval", '<?php $db->query("SELECT * FROM t WHERE id IN (" . implode(",", array_map("intval", $ids)) . ")");', False),
     ("snippet without opening tag", 'function f($x) { return mysql_query("a" . $x); }', True),
     ("method inside a class", '<?php class A { public function m($y) { return mysql_query("a" . $y); } }', True),
+    ("method on its own", 'public function m($y) { return mysql_query("a" . $y); }', True),
+    ("static method on its own", 'public static function m($y) { echo $_GET["a"]; }', True),
+    ("method on its own, safe", 'private function m($y) { return mysql_query("a" . intval($y)); }', False),
 ]
 
 
@@ -72,6 +75,9 @@ line = R.php_scan("function f() {\n  eval($x);\n}")
 extra.append(("line numbers for snippets", [l for l, _ in line], [2]))
 funcs = R.php_functions("<?php\nfunction f($x) {\n  return $x;\n}\n")
 extra.append(("function text", funcs[0]["code"].startswith("function f") if funcs else None, True))
+extra.append(("syntax: method on its own", R.php_syntax_ok("public function m($x) { return $x; }"), True))
+extra.append(("line numbers for a method on its own",
+              [l for l, _ in R.php_scan("public function m() {\n  eval($x);\n}")], [2]))
 for label, got, expected in extra:
     ok = got == expected
     failed += not ok
